@@ -13,7 +13,7 @@ class Singleton(object):
         flags = tf.app.flags
 
  
-        flags.DEFINE_string("dataset", "movieslen100k", "Comma-separated list of hostname:port pairs")
+        flags.DEFINE_string("dataset", "netflix_three_month_40", "Comma-separated list of hostname:port pairs")
         flags.DEFINE_string("model_type", "joint", "Comma-separated list of hostname:port pairs")
         flags.DEFINE_string("pretrained_model", "mf-25-0.12267.pkl", "Comma-separated list of hostname:port pairs")
         # flags.DEFINE_string("model_type", "mf", "Comma-separated list of hostname:port pairs")
@@ -83,7 +83,7 @@ class Singleton(object):
                         "split":"1998-03-08",
                         "end"  :"3005-13-01"
                 }
-        date_dict={"netflix_six_month":netflix_month,"netflix_year":netflix_year,"netflix_full":netflix_full,"movieslen100k":movieslen100k,"netflix_three_month":netflix_three_month}
+        date_dict={"netflix_six_month":netflix_month,"netflix_year":netflix_year,"netflix_full":netflix_full,"movieslen100k":movieslen100k,"netflix_three_month":netflix_three_month,"netflix_three_month_40":netflix_three_month}
         # train_split_data={"moviesLen_100k": FLAGS.moviesLen_100k_split_data , "netflix_6_mouth": FLAGS.netflix_6_mouth_split_data }
         FLAGS.split_data=date_dict.get(flags.FLAGS.dataset,None)["split"]
 
