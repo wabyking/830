@@ -127,7 +127,7 @@ def main(sess,model):
     for epoch in range(100):
 
         rnn_losses_g, mf_losses_g, joint_losses_g = [],[],[]
-
+#        getBatch_with_multi_pickle
         for i,(u_seqs,i_seqs,rating,uid,itemid) in tqdm(enumerate(helper.getBatch_with_multi_pickle(dns=FLAGS.dns,sess=sess,model=None,fresh=False))):
    
             _,loss_mf_g,loss_rnn_g,joint_loss_g ,mf,rnn= model.pretrain_step(sess, rating, uid, itemid, u_seqs, i_seqs)            

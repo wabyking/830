@@ -209,7 +209,7 @@ class DataHelper():
         
 
     def prepare_balance_pair(self,pool=None,sess=None,model=None, mode="train", epoches_size=1,shuffle=True,fresh=False,users=None):
-        if users==None:
+        if users is None:
             users=self.train.uid.unique()
         samples=[]
         for user in  tqdm(users):
@@ -240,10 +240,11 @@ class DataHelper():
         users=self.train.uid.unique()
         pickle_path = "tmp/samples_"+ ("dns" +str(self.conf.subset_size)+"_" if dns else "uniform") + ("_pair" if self.conf.pairwise else "") +("_sparse_tensor_" if self.conf.sparse_tensor else ( "_sparse" if self.conf.is_sparse else "_") ) +self.conf.dataset+"_"+str(self.conf.user_windows_size)+("" if  self.conf.rating_flag else "_binary")  +mode
         if not os.path.exists(pickle_path):
-            groups = [users[i:i+3] for i in range(0,len(users),3)]
+            self.create_dirs(pickle_path)
+            groups = [users[i:i+1000] for i in range(0,len(users),1000)]
             for i,group in enumerate(groups):
-                samples=prepare_balance_pair(users=group,mode=mode, sess=sess,model=model, epoches_size=epoches_size)
-                pickle_name=os.join(pickle_path,str(i))
+                samples=self.prepare_balance_pair(users=group,mode=mode, sess=sess,model=model, epoches_size=epoches_size)
+                pickle_name=os.path.join(pickle_path,str(i))
                 pickle.dump(samples, open(pickle_name, 'wb'),protocol=2)
 
         for i in os.listdir(pickle_path):
@@ -253,7 +254,7 @@ class DataHelper():
                 gc.disable()
                 samples=pickle.load(open(pickle_name, 'rb'))
                 gc.enable()
-                for batch in getBatch(samples=samples,pool=pool,dns=dns,sess=sess,model=model,mode=mode, epoches_size=epoches_size,shuffle=shuffle,pickle_name=pickle_name):
+                for batch in self.getBatch(samples=samples,pool=pool,dns=dns,sess=sess,model=model,mode=mode, epoches_size=epoches_size,shuffle=shuffle,pickle_name=pickle_name):
                     yield batch
     
     def getBatch(self,pool=None,dns=True,sess=None,model=None,fresh=True,mode="train", epoches_size=1,shuffle=True,pickle_name=None,samples=None):
@@ -572,7 +573,7 @@ class DataHelper():
             results= [ i for i in map(self.getScore,zip(users_set, itertools.repeat(sess),itertools.repeat(model) ))]
 
 
-        return np.mean(np.array(results),0)
+        return list(np.mean(np.array(results),0))
     def get_user_sparse_input(self,user_sequence):
         _indices,_values=[],[]
         for index,(cols,rows,values)  in enumerate(user_sequence):
@@ -665,8 +666,12 @@ def getResult(r):
     ndcg_3 = ndcg_at_k(r, 3)
     ndcg_5 = ndcg_at_k(r, 5)
     ndcg_10 = ndcg_at_k(r, 10)
-    return np.array([p_3, p_5, p_10, ndcg_3, ndcg_5, ndcg_10])
-
+    mrr =reciprocal_rank(r)
+    ap = average_precision(r)
+    return np.array([p_3, p_5, p_10, ndcg_3, ndcg_5, ndcg_10, mrr,ap])
+def reciprocal_rank(r):
+    nonzero_list=np.asarray(r).nonzero()[0]
+    return 1. / (nonzero_list[0] + 1) if nonzero_list.size else 0
 
 def dcg_at_k(r, k):
     r = np.asfarray(r)[:k]
@@ -674,10 +679,58 @@ def dcg_at_k(r, k):
 
 
 def ndcg_at_k(r, k):
-    dcg_max = dcg_at_k(sorted(r, reverse=True), k)
+    dcg_max = dcg_at_k([1]* k,k)
+#    dcg_max = dcg_at_k(sorted(r, reverse=True), k)
     if not dcg_max:
         return 0.
     return dcg_at_k(r, k) / dcg_max
+def precision_at_k(r, k):
+    """Score is precision @ k
+    Relevance is binary (nonzero is relevant).
+    >>> r = [0, 0, 1]
+    >>> precision_at_k(r, 1)
+    0.0
+    >>> precision_at_k(r, 2)
+    0.0
+    >>> precision_at_k(r, 3)
+    0.33333333333333331
+    >>> precision_at_k(r, 4)
+    Traceback (most recent call last):
+        File "<stdin>", line 1, in ?
+    ValueError: Relevance score length < k
+    Args:
+        r: Relevance scores (list or numpy) in rank order
+            (first element is the first item)
+    Returns:
+        Precision @ k
+    Raises:
+        ValueError: len(r) must be >= k
+    """
+    assert k >= 1
+    r = np.asarray(r)[:k] != 0
+    if r.size != k:
+        raise ValueError('Relevance score length < k')
+    return np.mean(r)
+def average_precision(r):
+    """Score is average precision (area under PR curve)
+    Relevance is binary (nonzero is relevant).
+    >>> r = [1, 1, 0, 1, 0, 1, 0, 0, 0, 1]
+    >>> delta_r = 1. / sum(r)
+    >>> sum([sum(r[:x + 1]) / (x + 1.) * delta_r for x, y in enumerate(r) if y])
+    0.7833333333333333
+    >>> average_precision(r)
+    0.78333333333333333
+    Args:
+        r: Relevance scores (list or numpy) in rank order
+            (first element is the first item)
+    Returns:
+        Average precision
+    """
+    r = np.asarray(r) != 0
+    out = [precision_at_k(r, k + 1) for k in range(r.size) if r[k]]
+    if not out:
+        return 0.
+    return np.mean(out)
 
 
 
