@@ -108,6 +108,7 @@ def main(checkpoint_dir="model/"):
             for g_epoch in range(1):    
 
                 rewardes,pg_losses=[],[] 
+                
                 for user in df["uid"].unique():            
                     # generate pesudo labels for the given user
                     all_rating = gen.predictionItems(sess1,user)                           # todo delete the pos ones            

@@ -13,7 +13,7 @@ class Singleton(object):
         flags = tf.app.flags
 
  
-        flags.DEFINE_string("dataset", "netflix_three_month_40", "Comma-separated list of hostname:port pairs")
+        flags.DEFINE_string("dataset", "netflix_three_month", "Comma-separated list of hostname:port pairs")
         flags.DEFINE_string("model_type", "joint", "Comma-separated list of hostname:port pairs")
         flags.DEFINE_string("pretrained_model", "mf-25-0.12267.pkl", "Comma-separated list of hostname:port pairs")
         # flags.DEFINE_string("model_type", "mf", "Comma-separated list of hostname:port pairs")
@@ -122,7 +122,7 @@ class Singleton(object):
         flags.DEFINE_integer("user_windows_size", 4, "Batch size of data while training")
         flags.DEFINE_integer("n_epochs", 10, "Batch size of data while training")
         flags.DEFINE_integer("test_granularity_count", 2, "Batch size of data while training")
-        flags.DEFINE_integer("mf_embedding_dim", 10, "Batch size of data while training")
+        flags.DEFINE_integer("mf_embedding_dim", 16, "Batch size of data while training")
         flags.DEFINE_integer("rnn_embedding_dim", 10, "Batch size of data while training")  
         flags.DEFINE_integer("g_epoch_size", 2, "Batch size of data while training")  
         flags.DEFINE_integer("d_epoch_size", 1, "Batch size of data while training")  

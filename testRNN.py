@@ -2,7 +2,7 @@ import pandas as pd
 import os
 import numpy as np 
 import pickle
-
+import itertools
 import tensorflow as tf
 from Discrimiator import Dis
 from Generator import Gen
@@ -101,8 +101,8 @@ for sess_,model,init,saver in zip([sess1,sess2],[gen,dis],[init1,init2],[saver1,
 # model.restoreModel("mf.model",save_type="mf")
 
 
-#checkpoint_filepath= "model/joint-25-0.27733.ckpt"
-#saver.restore(sess,checkpoint_filepath)
+#checkpoint_filepath= "model/netflix_three_month/Dis/joint-25-0.18419-0.18452.ckpt"
+#saver2.restore(sess2,checkpoint_filepath)
 
 # model.saveModel(sess,"rnn.model",save_type="rnn")
 
@@ -111,54 +111,54 @@ for sess_,model,init,saver in zip([sess1,sess2],[gen,dis],[init1,init2],[saver1,
 #scores=helper.evaluateMultiProcess(sess,dis)
 
 
+sess,model=sess2,dis
 
-def main(sess,model):
-    
-    scores=helper.evaluateMultiProcess(sess,model)
 
-    if FLAGS.model_type=="mf":
-        best_p5=scores[1]
-    else:
-        best_p5=scores[1][1]
-    print(scores)
-    
-    best_p5 = 0
-    print ("training " +("Dis" if isinstance(model ,Dis) else "Gen") +" model")
-    for epoch in range(100):
+scores=helper.evaluateMultiProcess(sess,model)
 
-        rnn_losses_g, mf_losses_g, joint_losses_g = [],[],[]
+if FLAGS.model_type=="mf":
+    best_p5=scores[1]
+else:
+    best_p5=scores[1][1]
+print(scores)
+
+best_p5 = 0
+print ("training " +("Dis" if isinstance(model ,Dis) else "Gen") +" model")
+for epoch in range(100):
+
+    rnn_losses_g, mf_losses_g, joint_losses_g = [],[],[]
 #        getBatch_with_multi_pickle
-        for i,(u_seqs,i_seqs,rating,uid,itemid) in tqdm(enumerate(helper.getBatch_with_multi_pickle(dns=FLAGS.dns,sess=sess,model=None,fresh=False))):
+    for i,(u_seqs,i_seqs,rating,uid,itemid) in enumerate(helper.getBatch_with_multi_pickle(dns=FLAGS.dns,sess=sess,model=None,fresh=False)):
    
-            _,loss_mf_g,loss_rnn_g,joint_loss_g ,mf,rnn= model.pretrain_step(sess, rating, uid, itemid, u_seqs, i_seqs)            
-           
-            
-            rnn_losses_g.append(loss_rnn_g)
-            mf_losses_g.append(loss_mf_g)
-            joint_losses_g.append(joint_loss_g)
-
-            
-        print(" rnn loss : %.5f mf loss : %.5f  : joint loss %.5f" %
-              (np.mean(np.array(rnn_losses_g)),np.mean(np.array(mf_losses_g)),np.mean(np.array(joint_losses_g))) )
-
-
-        scores = (helper.evaluateMultiProcess(sess, model))
-        print(scores)
-
-
+        _,loss_mf_g,loss_rnn_g,joint_loss_g ,mf,rnn= model.pretrain_step(sess, rating, uid, itemid, u_seqs, i_seqs)            
        
-        if FLAGS.model_type == "mf":
-            curentt_p5_score = scores[1]
-        else:
-            curentt_p5_score = scores[1][1]
+        
+        rnn_losses_g.append(loss_rnn_g)
+        mf_losses_g.append(loss_mf_g)
+        joint_losses_g.append(joint_loss_g)
 
-        if curentt_p5_score > best_p5:        	
-            best_p5 = curentt_p5_score
-            print("best p5 score %5.f"% best_p5)
-            checkpoint_dir=    "model/"+ helper.conf.dataset +("/Dis" if isinstance(model ,Dis) else "/Gen") +"/"
-            helper.create_dirs(checkpoint_dir)
-            
-            saver.save(sess, checkpoint_dir + '%s-%d-%.5f-%.5f.ckpt'% (FLAGS.model_type,FLAGS.re_rank_list_length,scores[0][1], scores[1][1]))
+        
+    print(" rnn loss : %.5f mf loss : %.5f  : joint loss %.5f" %
+          (np.mean(np.array(rnn_losses_g)),np.mean(np.array(mf_losses_g)),np.mean(np.array(joint_losses_g))) )
+
+
+    scores = (helper.evaluateMultiProcess(sess, model))
+    print(scores)
+
+
+   
+    if FLAGS.model_type == "mf":
+        curentt_p5_score = scores[1]
+    else:
+        curentt_p5_score = scores[1][1]
+
+    if curentt_p5_score > best_p5:        	
+        best_p5 = curentt_p5_score
+        print("best p5 score %5.f"% best_p5)
+        checkpoint_dir=    "model/"+ helper.conf.dataset +("/Dis" if isinstance(model ,Dis) else "/Gen") +"/"
+        helper.create_dirs(checkpoint_dir)
+        
+        saver.save(sess, checkpoint_dir + '%s-%d-%.5f-%.5f.ckpt'% (FLAGS.model_type,FLAGS.re_rank_list_length,scores[0][1], scores[1][1]))
 
 #            helper.create_dirs("model/mf")
 #            mf_model = 'model/mf/%s-%d-%.5f.pkl'% (FLAGS.model_type,FLAGS.re_rank_list_length,best_p5)
@@ -199,7 +199,26 @@ def analysisData():
 
 	with open("b.txt","w") as f:
 		f.write("\n".join(datas))
-             
+def evaluateMultiProcess(sess,model,mp=False,users_set=None):
+    if users is None:
+        users_set=helper.test_users
+#        users_set=helper.test[helper.test.rating>4.99]["uid"].unique()
+    print("evaluate %d users" %len(users_set))
+    # users_set=helper.users
+    results=None
+    if mp:
+        # try:
+        pool=Pool(cpu_count())
+        results= pool.map(helper.getScore,zip(list(users_set), itertools.repeat(sess),itertools.repeat(model) ))
+        # except:
+            # pool.close()
+    else:
+        results= [ i for i in map(helper.getScore,zip(users_set, itertools.repeat(sess),itertools.repeat(model) ))]
+    return list(np.mean(np.array(results),0))
+def testModel():
+    evaluateMultiProcess(sess2,dis,users_set=[ k for k,v in test_user_count.items() if v > 50])
+    for user in helper.test_users:
+        print(evaluateMultiProcess(sess2,dis,users_set={user}))
 if __name__== "__main__":
     if helper.conf.pairwise:
         pairtrain()

@@ -73,7 +73,9 @@ class DataHelper():
         self.create_dirs("tmp")
         dataset_pkl = "tmp/"+self.conf.dataset +"_"+self.conf.split_data+("" if  self.conf.rating_flag else "_binary")+".pkl"
         if os.path.exists(dataset_pkl):
+            print("data load over")
             return pickle.load(open(dataset_pkl, 'rb'))
+        print("build data...")
         data_dir="data/%s"% self.conf.dataset 
         filename = os.path.join(data_dir, self.conf.train_file_name)
        
@@ -118,7 +120,7 @@ class DataHelper():
         df = df.drop('i_original', 1)
         
         pickle.dump(df, open(dataset_pkl, 'wb'),protocol=2)
-        return 
+        return df
 
     def user_windows_apply(self,group,user_dict):
         uid=(int(group["uid"].mode()))
@@ -149,13 +151,14 @@ class DataHelper():
     def getdicts(self):
         dict_pkl = "tmp/user_item_"+self.conf.dataset+("" if  self.conf.rating_flag else "_binary")+".pkl"
         if os.path.exists(dict_pkl):
-            # start=time.time()
+            start=time.time()
             import gc
             gc.disable()
             user_dict,item_dict= pickle.load(open(dict_pkl, 'rb'))
             gc.enable()
-            # print( "Elapsed time: ", time.time() - start)
+            print( "load dict cost  time: %.5f "%( time.time() - start))
         else:            
+            print("build data...")
             user_dict,item_dict={},{}
             user_windows = self.data.groupby("uid").apply(self.user_windows_apply,user_dict=user_dict)
             item_windows = self.data.groupby("itemid").apply(self.item_windows_apply,item_dict=item_dict)
@@ -240,20 +243,25 @@ class DataHelper():
         users=self.train.uid.unique()
         pickle_path = "tmp/samples_"+ ("dns" +str(self.conf.subset_size)+"_" if dns else "uniform") + ("_pair" if self.conf.pairwise else "") +("_sparse_tensor_" if self.conf.sparse_tensor else ( "_sparse" if self.conf.is_sparse else "_") ) +self.conf.dataset+"_"+str(self.conf.user_windows_size)+("" if  self.conf.rating_flag else "_binary")  +mode
         if not os.path.exists(pickle_path):
+            print("No pickled samples here, need to be created")
             self.create_dirs(pickle_path)
             groups = [users[i:i+1000] for i in range(0,len(users),1000)]
             for i,group in enumerate(groups):
                 samples=self.prepare_balance_pair(users=group,mode=mode, sess=sess,model=model, epoches_size=epoches_size)
                 pickle_name=os.path.join(pickle_path,str(i))
                 pickle.dump(samples, open(pickle_name, 'wb'),protocol=2)
-
+        
         for i in os.listdir(pickle_path):
             if os.path.isfile(os.path.join(pickle_path,i)):
+                
                 pickle_name=os.path.join(pickle_path,i)
+                print("load samples from file %s" % pickle_name)
                 import gc
                 gc.disable()
                 samples=pickle.load(open(pickle_name, 'rb'))
                 gc.enable()
+                samples=[sample for sample in samples if sample[0] in self.test.uid.unique()]
+                print("process %d samples" % len(samples))
                 for batch in self.getBatch(samples=samples,pool=pool,dns=dns,sess=sess,model=model,mode=mode, epoches_size=epoches_size,shuffle=shuffle,pickle_name=pickle_name):
                     yield batch
     
@@ -274,11 +282,11 @@ class DataHelper():
                 pickle.dump(samples, open(pickle_name, 'wb'),protocol=2)
 
                 
-
+       
         start=time.time()
         random.shuffle(samples)                      
         print("shuffle time spent %f"% (time.time()-start))
-
+        
         n_batches = int(len(samples)/ self.conf.batch_size)
         print("%d batch"% n_batches)
                 
@@ -557,8 +565,9 @@ class DataHelper():
         return self.getUserVector(u_seqs),[i for i in map(self.getItemVector, i_seqss)]
   
   
-    def evaluateMultiProcess(self,sess,model,mp=False):
-        users_set=self.test_users
+    def evaluateMultiProcess(self,sess,model,mp=False,users_set=None):
+        if users_set is None:
+            users_set=self.test_users
 #        users_set=self.test[self.test.rating>4.99]["uid"].unique()
         print("evaluate %d users" %len(users_set))
         # users_set=self.users
