@@ -241,7 +241,7 @@ class DataHelper():
     
     def getBatch_with_multi_pickle(self,pool=None,dns=True,sess=None,model=None,fresh=True,mode="train", epoches_size=1,shuffle=True,pickle_name=None,samples=None):
         users=self.train.uid.unique()
-        pickle_path = "tmp/samples_"+ ("dns" +str(self.conf.subset_size)+"_" if dns else "uniform") + ("_pair" if self.conf.pairwise else "") +("_sparse_tensor_" if self.conf.sparse_tensor else ( "_sparse" if self.conf.is_sparse else "_") ) +self.conf.dataset+"_"+str(self.conf.user_windows_size)+("" if  self.conf.rating_flag else "_binary")  +mode
+        pickle_path = "tmp/samples_"+ ("dns" +str(self.conf.subset_size)+"_" if dns else "uniform") + ("_pair" if self.conf.pairwise else "") +("_sparse_tensor_" if self.conf.sparse_tensor else ( "_sparse" if self.conf.is_sparse else "_") ) +self.conf.dataset+"_"+str(self.conf.user_windows_size)+("" if  self.conf.rating_flag else "_binary")  +mode +("" if  self.conf.user_windows_size==4 else "_seq"+str(self.conf.user_windows_size))
         if not os.path.exists(pickle_path):
             print("No pickled samples here, need to be created")
             self.create_dirs(pickle_path)
@@ -780,9 +780,13 @@ if __name__ == '__main__':
     FLAGS=Singleton().get_andy_flag()
     helper=DataHelper(FLAGS)
     start = time.time() 
-    print (helper.evaluateMultiProcess(None,None))
-    print("time spented %.6f"%(time.time()-start))
-
+    
+#    print (helper.evaluateMultiProcess(None,None))
+#    print("time spented %.6f"%(time.time()-start))
+    for seq in [2,3,4,5,6,7,8]:
+        helper.conf.user_windows_size=seq
+        for i,(u_seqs,i_seqs,rating,uid,itemid) in enumerate(helper.getBatch_with_multi_pickle(dns=FLAGS.dns,sess=None,model=None,fresh=False)):
+            pass
 #    start = time.time() 
 #    print ("start")
 #    print (helper.evaluateMultiProcess(None,None))
