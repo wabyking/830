@@ -280,9 +280,10 @@ class DataHelper():
             else:            
                 samples = self.prepare_balance_pair(mode=mode, sess=sess,model=model, epoches_size=epoches_size)            
                 pickle.dump(samples, open(pickle_name, 'wb'),protocol=2)
-
-                
-       
+        print(samples[0])
+        print(len(samples))        
+        samples =[ sample for sample in samples if sample[0] in set(self.test.uid.unique())]
+        print(len(samples))
         start=time.time()
         random.shuffle(samples)                      
         print("shuffle time spent %f"% (time.time()-start))
@@ -357,14 +358,14 @@ class DataHelper():
         else:
             samples = self.prepare_balance_pair(mode=mode, sess=sess,model=model, epoches_size=epoches_size)            
             pickle.dump(samples, open(pickle_name, 'wb'),protocol=2)
-
+        sampels =[ sample for sample in samples if sample[0] in set(self.test.uid.unique())]
         start=time.time()
         random.shuffle(samples)                      
         print("shuffle time spent %f"% (time.time()-start))
 
         n_batches = int(len(samples)/ self.conf.batch_size)
         print("%d batch"% n_batches)
-                
+        
         for i in range(0,n_batches):
             start=time.time()            
            
